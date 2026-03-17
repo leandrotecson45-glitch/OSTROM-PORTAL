@@ -32,7 +32,7 @@ body {
 .header {
   width:100%;
   height:180px;
-  background: url('https://images.unsplash.com/photo-1492724441997-5dc865305da7') center/cover;
+  background: url('https://i.ibb.co/YTX5jq95/ow.jpg') center/cover;
   border-radius:15px;
   overflow:hidden;
   margin-bottom:15px;
@@ -42,23 +42,23 @@ body {
 .overlay {
   width:100%;
   height:100%;
-  background:rgba(0,0,0,0.5);
+  background:rgba(0,4,2,0.5);
   display:flex;
   flex-direction:column;
   justify-content:center;
   align-items:center;
-  color:white;
+  color:WHITE;
   text-align:center;
 }
 
 .overlay h1 {
   margin:0;
-  font-size:22px;
+  font-size:40px;
 }
 
 .overlay p {
   margin-top:5px;
-  font-size:14px;
+  font-size:18px;
   opacity:0.9;
 }
 
@@ -104,8 +104,8 @@ img {
 
 <div class="header">
   <div class="overlay">
-    <h1>📸 DS26_OW Portal</h1>
-    <p>OCR → EXIF Auto Processing System</p>
+    <h1>OSTROM CLIMATE</h1>
+    <p>ACTION MATTERS</p>
   </div>
 </div>
 
