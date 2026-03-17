@@ -14,34 +14,100 @@
 body {
   margin:0;
   font-family:Segoe UI;
-  background:url('https://images.unsplash.com/photo-1502082553048-f009c37129b9') center/cover fixed;
+  background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+  url('https://images.unsplash.com/photo-1502082553048-f009c37129b9') center/cover fixed;
 }
+
+/* CONTAINER */
 .container {
   max-width:500px;
   margin:20px auto;
   background:rgba(255,255,255,0.95);
-  padding:20px;
+  padding:15px;
+  border-radius:20px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
+}
+
+/* HEADER */
+.header {
+  width:100%;
+  height:180px;
+  background: url('https://images.unsplash.com/photo-1492724441997-5dc865305da7') center/cover;
   border-radius:15px;
+  overflow:hidden;
+  margin-bottom:15px;
+  position:relative;
 }
-h2 {text-align:center;}
+
+.overlay {
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.5);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  text-align:center;
+}
+
+.overlay h1 {
+  margin:0;
+  font-size:22px;
+}
+
+.overlay p {
+  margin-top:5px;
+  font-size:14px;
+  opacity:0.9;
+}
+
+/* FORM */
 input, textarea {
-  width:100%; padding:10px; margin-top:8px;
-  border-radius:8px; border:1px solid #ccc;
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  font-size:14px;
 }
+
 button {
-  width:100%; padding:12px; margin-top:10px;
-  border:none; border-radius:10px;
-  background:#00796b; color:white; font-size:16px;
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  background:#00796b;
+  color:white;
+  font-size:16px;
+  cursor:pointer;
 }
-img {width:100%; margin-top:10px; border-radius:10px;}
-#map {height:200px; margin-top:10px;}
+
+img {
+  width:100%;
+  margin-top:10px;
+  border-radius:10px;
+}
+
+#map {
+  height:200px;
+  margin-top:10px;
+  border-radius:10px;
+}
 </style>
 </head>
 
 <body>
 
 <div class="container">
-<h2>📸 DS26_OW OCR → EXIF PRO</h2>
+
+<div class="header">
+  <div class="overlay">
+    <h1>📸 DS26_OW Portal</h1>
+    <p>OCR → EXIF Auto Processing System</p>
+  </div>
+</div>
 
 <input type="file" id="imageInput">
 <img id="preview">
@@ -65,12 +131,13 @@ img {width:100%; margin-top:10px; border-radius:10px;}
 <input id="dateTaken" placeholder="Date Taken">
 
 <div id="map"></div>
+
 </div>
 
 <script>
 let originalSrc, compressedData;
 
-// OCR FIX + SMART COORDINATES
+// SMART COORDS
 function extractCoordinates(text){
   text = text.replace(/O/g,'0').replace(/o/g,'0')
              .replace(/l/g,'1').replace(/I/g,'1');
@@ -120,7 +187,7 @@ function runOCR(src){
   });
 }
 
-// IMAGE LOAD
+// LOAD IMAGE
 imageInput.onchange=e=>{
   let file=e.target.files[0];
   if(!file) return;
@@ -179,7 +246,7 @@ function updateMap(){
   }
 }
 
-// EXIF FIX (IMPORTANT)
+// EXIF FIX
 function decimalToDMSRational(dec){
   let abs=Math.abs(dec);
   let deg=Math.floor(abs);
@@ -190,7 +257,7 @@ function decimalToDMSRational(dec){
   return [[deg,1],[min,1],[Math.round(sec*100),100]];
 }
 
-// DOWNLOAD WITH EXIF
+// DOWNLOAD
 function downloadImage(){
   let exifObj={"0th":{},"GPS":{}};
 
