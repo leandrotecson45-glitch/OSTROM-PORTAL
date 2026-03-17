@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DS26_OW OCR → EXIF Portal</title>
+<title>DS26_OW OCR → EXIF Portal (GPS Ready)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
@@ -11,10 +11,10 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-body {font-family: 'Segoe UI', sans-serif; margin:0; min-height:100vh; display:flex; justify-content:center; align-items:center; background:url('https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed; background-size:cover; position:relative;}
+body {font-family:'Segoe UI', sans-serif;margin:0;min-height:100vh;display:flex;justify-content:center;align-items:center;background:url('https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;background-size:cover;position:relative;}
 body::before {content:""; position:absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.45); z-index:0;}
 .container {position: relative; background: rgba(255,255,255,0.95); padding:25px; border-radius:20px; max-width:500px; width:100%; box-shadow:0 8px 25px rgba(0,0,0,0.2); text-align:center; z-index:1;}
-.title-banner {background:url('https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=800&q=80') center/cover no-repeat; border-radius:15px; padding:15px; margin-bottom:20px; color:white; font-size:35px; font-weight:bold; text-shadow:1px 12px 4px rgba(0,0,0,0.7);}
+.title-banner {background:url('https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=800&q=80') center/cover no-repeat; border-radius:15px; padding:15px; margin-bottom:20px; color:white; font-size:22px; font-weight:bold; text-shadow:1px 1px 4px rgba(0,0,0,0.7);}
 label {display:block; text-align:left; margin-top:15px; font-weight:bold; color:#004d40; font-size:16px;}
 input, textarea, input[type=range] {width:100%; padding:12px; margin-top:8px; border-radius:10px; border:1px solid #b2dfdb; font-size:16px; box-sizing:border-box; background: rgba(255,255,255,0.9);}
 img {max-width:100%; margin-top:15px; border-radius:12px; border:1px solid #b2dfdb;}
@@ -27,7 +27,7 @@ textarea {resize:none;}
 <body>
 
 <div class="container">
-  <div class="title-banner">OSTROM CLIMATE</div>
+  <div class="title-banner">📸 DS26_OW OCR → EXIF Portal (GPS Ready)</div>
 
   <input type="file" id="imageInput" accept="image/*">
   <img id="preview"/>
@@ -107,35 +107,44 @@ document.getElementById("imageInput").addEventListener("change", function(e){
     imageElement.src = originalSrc;
     document.getElementById("filename").value = "DS26_OW-" + uploadedFile.name;
 
-    readOCRAndFillEXIF(originalSrc);
+    readOCRAndFillData(originalSrc);
 
     compressImage();
   }
   reader.readAsDataURL(uploadedFile);
 });
 
-function readOCRAndFillEXIF(src){
+function readOCRAndFillData(src){
   Tesseract.recognize(src,'eng',{logger:m=>console.log(m)})
   .then(({data:{text}})=>{
     document.getElementById("ocrText").value = text;
     const lines = text.split("\n").map(l=>l.trim()).filter(l=>l);
     if(lines.length>0){
-      // Last non-empty line → description
       const lastLine = lines[lines.length-1];
       document.getElementById("description").value = "DS26_OW-" + lastLine;
     }
-    // Optional: try to extract GPS, Date, Model from OCR
-    const numMatches = text.match(/-?\d{1,3}\.\d+/g);
-    if(numMatches && numMatches.length>=2){
-      document.getElementById("latitude").value = parseFloat(numMatches[0]).toFixed(6);
-      document.getElementById("longitude").value = parseFloat(numMatches[1]).toFixed(6);
+
+    // Extract coordinates from OCR
+    const coords = extractCoordinates(text);
+    if(coords){
+      document.getElementById("latitude").value = coords.lat.toFixed(6);
+      document.getElementById("longitude").value = coords.lon.toFixed(6);
       updateMap();
     }
+
+    // DateTime from OCR
     const dateMatch = text.match(/(\d{2,4}[\/\-]\d{1,2}[\/\-]\d{2,4})\s*(\d{1,2}:\d{2}(?::\d{2})?)/);
     if(dateMatch){
       document.getElementById("dateTaken").value = `${dateMatch[1]} ${dateMatch[2]}`;
     }
   });
+}
+
+// Extract last two decimal numbers as lat/lon
+function extractCoordinates(text){
+  const nums = text.match(/-?\d{1,3}\.\d+/g);
+  if(!nums || nums.length<2) return null;
+  return {lat: parseFloat(nums[0]), lon: parseFloat(nums[1])};
 }
 
 function compressImage(){
@@ -157,31 +166,35 @@ function compressImage(){
   }
 }
 
-// Download with updated EXIF (piexif)
+// Convert decimal → [deg,min,sec] for piexif
+function decimalToDMS(dec){
+  dec = Math.abs(dec);
+  let deg = Math.floor(dec);
+  let min = Math.floor((dec-deg)*60);
+  let sec = Math.round((dec-deg-min/60)*3600*100)/100;
+  return [deg,min,sec];
+}
+
+// Download image with EXIF (OCR → EXIF)
 downloadBtn.onclick = function(){
   if(!compressedDataURL) return;
   let exifObj = {"0th":{},"Exif":{},"GPS":{}};
 
-  // Fill EXIF 0th
   exifObj["0th"][piexif.ImageIFD.Make] = document.getElementById("make").value || "";
   exifObj["0th"][piexif.ImageIFD.Model] = document.getElementById("model").value || "";
   exifObj["0th"][piexif.ImageIFD.Software] = document.getElementById("software").value;
-
-  // Description
   exifObj["0th"][piexif.ImageIFD.ImageDescription] = document.getElementById("description").value || "";
-
-  // DateTime
   if(document.getElementById("dateTaken").value)
     exifObj["0th"][piexif.ImageIFD.DateTime] = document.getElementById("dateTaken").value;
 
-  // GPS
+  // Inject GPS from OCR numbers
   const lat = parseFloat(document.getElementById("latitude").value);
-  const lng = parseFloat(document.getElementById("longitude").value);
-  if(!isNaN(lat) && !isNaN(lng)){
+  const lon = parseFloat(document.getElementById("longitude").value);
+  if(!isNaN(lat) && !isNaN(lon)){
     exifObj["GPS"][piexif.GPSIFD.GPSLatitude] = decimalToDMS(lat);
     exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef] = lat>=0?"N":"S";
-    exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = decimalToDMS(lng);
-    exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = lng>=0?"E":"W";
+    exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = decimalToDMS(lon);
+    exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = lon>=0?"E":"W";
   }
 
   const exifBytes = piexif.dump(exifObj);
@@ -192,15 +205,6 @@ downloadBtn.onclick = function(){
   if(!fname.toLowerCase().endsWith(".jpg")) fname += ".jpg";
   link.download = fname;
   link.click();
-}
-
-// Convert decimal to [deg, min, sec] format for piexif
-function decimalToDMS(dec){
-  dec = Math.abs(dec);
-  let deg = Math.floor(dec);
-  let min = Math.floor((dec-deg)*60);
-  let sec = Math.round((dec-deg-min/60)*3600*100)/100;
-  return [deg,min,sec];
 }
 </script>
 
