@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OSTROM CLIMATE</title>
+<title>DS26_OW Photo Metadata Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <style>
-/* Body background image with overlay */
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin:0;
@@ -20,7 +19,6 @@ body {
   background-size: cover;
   position: relative;
 }
-
 body::before {
   content:"";
   position:absolute;
@@ -28,7 +26,6 @@ body::before {
   background: rgba(0,0,0,0.45);
   z-index:0;
 }
-
 .container {
   position: relative;
   background: rgba(255,255,255,0.95);
@@ -40,8 +37,6 @@ body::before {
   text-align:center;
   z-index:1;
 }
-
-/* Title banner */
 .title-banner {
   background: url('https://i.ibb.co/YTX5jq95/ow.jpg') center/cover no-repeat;
   border-radius:15px;
@@ -50,10 +45,8 @@ body::before {
   color:white;
   font-size:35px;
   font-weight:bold;
-  text-shadow: 2px 12px 4px rgba(0,0,0,0.7);
+  text-shadow: 1px 12px 4px rgba(0,0,0,0.7);
 }
-
-/* Labels */
 label {
   display:block;
   text-align:left;
@@ -62,8 +55,6 @@ label {
   color:#004d40;
   font-size:16px;
 }
-
-/* Inputs, textarea, slider */
 input, textarea, input[type=range] {
   width:100%;
   padding:12px;
@@ -74,16 +65,12 @@ input, textarea, input[type=range] {
   box-sizing:border-box;
   background: rgba(255,255,255,0.9);
 }
-
-/* Image preview */
 img {
   max-width:100%;
   margin-top:15px;
   border-radius:12px;
   border:1px solid #b2dfdb;
 }
-
-/* Button */
 button {
   cursor:pointer;
   background:#00796b;
@@ -96,11 +83,7 @@ button {
   transition:0.3s;
 }
 button:hover { background:#004d40; }
-
-/* Map */
 #map { height:250px; margin-top:15px; border-radius:12px; border:1px solid #b2dfdb; }
-
-/* OCR textarea */
 textarea { resize:none; }
 </style>
 </head>
@@ -128,7 +111,7 @@ textarea { resize:none; }
   <input type="text" id="description">
 
   <label for="software">Software</label>
-  <input type="text" id="software">
+  <input type="text" id="software" value="Timestamp Camera" readonly>
 
   <label for="model">Model</label>
   <input type="text" id="model">
@@ -149,10 +132,7 @@ textarea { resize:none; }
 </div>
 
 <script>
-// JS logic same as previous fixed version
-let uploadedFile;
-let originalSrc;
-let compressedDataURL;
+let uploadedFile, originalSrc, compressedDataURL;
 let imageElement = document.getElementById("preview");
 let downloadBtn = document.getElementById("downloadBtn");
 let qualitySlider = document.getElementById("qualitySlider");
@@ -239,7 +219,10 @@ function readOCR(src){
 function fillMetadataFromOCR(text){
   const lines = text.split("\n").map(l=>l.trim()).filter(l=>l);
   let numbers=[], dateSet=false;
-  let descriptionSet=false, softwareSet=false, modelSet=false, makeSet=false;
+  let descriptionSet=false, modelSet=false, makeSet=false;
+
+  // Fixed software
+  document.getElementById("software").value = "Timestamp Camera";
 
   lines.forEach(line=>{
     const l = line.toLowerCase();
@@ -255,18 +238,26 @@ function fillMetadataFromOCR(text){
       dateSet=true;
     }
 
-    if(!descriptionSet && !l.includes("software") && !l.includes("model") && !l.includes("make") && !dateTimeMatch && !matches){
+    if(!descriptionSet && !l.includes("model") && !l.includes("make") && !dateTimeMatch && !matches){
         document.getElementById("description").value = "DS26_OW-" + line;
         descriptionSet=true;
     }
 
-    if(!softwareSet && (l.includes("adobe")||l.includes("photoshop")||l.includes("camera")||l.includes("lightroom"))){ document.getElementById("software").value=line; softwareSet=true;}
-    if(!modelSet && (l.includes("canon")||l.includes("nikon")||l.includes("sony")||l.includes("osmo")||l.includes("gopro"))){ document.getElementById("model").value=line; modelSet=true;}
-    if(!makeSet && (l.includes("canon")||l.includes("nikon")||l.includes("sony")||l.includes("dji")||l.includes("gopro"))){ document.getElementById("make").value=line; makeSet=true;}
+    if(!modelSet && (l.includes("canon")||l.includes("nikon")||l.includes("sony")||l.includes("osmo")||l.includes("gopro"))){
+        document.getElementById("model").value=line; modelSet=true;
+    }
+    if(!makeSet && (l.includes("canon")||l.includes("nikon")||l.includes("sony")||l.includes("dji")||l.includes("gopro"))){
+        document.getElementById("make").value=line; makeSet=true;
+    }
   });
 
-  if(numbers.length>=2){ document.getElementById("latitude").value=numbers[0]; document.getElementById("longitude").value=numbers[1]; }
-  else if(numbers.length===1){ document.getElementById("latitude").value=numbers[0]; document.getElementById("longitude").value=""; }
+  if(numbers.length>=2){
+    document.getElementById("latitude").value=numbers[0];
+    document.getElementById("longitude").value=numbers[1];
+  } else if(numbers.length===1){
+    document.getElementById("latitude").value=numbers[0];
+    document.getElementById("longitude").value="";
+  }
 
   updateMap();
 }
