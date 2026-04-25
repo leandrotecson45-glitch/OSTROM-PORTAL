@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS26_OW OCR → EXIF PRO</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+body {
+  margin:0;
+  font-family:Segoe UI;
+  background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+  url('https://images.unsplash.com/photo-1502082553048-f009c37129b9') center/cover fixed;
+}
+
+/* CONTAINER */
+.container {
+  max-width:500px;
+  margin:20px auto;
+  background:rgba(255,255,255,0.95);
+  padding:15px;
+  border-radius:20px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
+}
+
+/* HEADER */
+.header {
+  width:100%;
+  height:180px;
+  background: url('https://i.ibb.co/YTX5jq95/ow.jpg') center/cover;
+  border-radius:15px;
+  overflow:hidden;
+  margin-bottom:15px;
+  position:relative;
+}
+
+.overlay {
+  width:100%;
+  height:100%;
+  background:rgba(0,4,2,0.5);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:WHITE;
+  text-align:center;
+}
+
+.overlay h1 {
+  margin:0;
+  font-size:40px;
+}
+
+.overlay p {
+  margin-top:5px;
+  font-size:18px;
+  opacity:0.9;
+}
+
+/* FORM */
+input, textarea {
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  font-size:14px;
+}
+
+button {
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  background:#00796b;
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+}
+
+img {
+  width:100%;
+  margin-top:10px;
+  border-radius:10px;
+}
+
+#map {
+  height:200px;
+  margin-top:10px;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+  <div class="overlay">
+    <h1>OSTROM CLIMATE</h1>
+    <p>ACTION MATTERS</p>
+  </div>
+</div>
+
+<input type="file" id="imageInput">
+<img id="preview">
+
+<label>Compression: <span id="qv">80%</span></label>
+<input type="range" id="quality" min="10" max="100" value="80">
+
+<button onclick="downloadImage()">💾 Download (EXIF)</button>
+
+<h3>OCR Output</h3>
+<textarea id="ocrText"></textarea>
+
+<h3>Form</h3>
+<input id="filename" placeholder="Filename">
+<input id="description" placeholder="Description">
+<input id="software" value="Timestamp Camera" readonly>
+<input id="model" placeholder="Model">
+<input id="make" placeholder="Make">
+<input id="latitude" placeholder="Latitude">
+<input id="longitude" placeholder="Longitude">
+<input id="dateTaken" placeholder="Date Taken">
+
+<div id="map"></div>
+
+</div>
+
+<script>
+let originalSrc, compressedData;
+
+// SMART COORDS
+function extractCoordinates(text){
+  text = text.replace(/O/g,'0').replace(/o/g,'0')
+             .replace(/l/g,'1').replace(/I/g,'1');
+
+  let nums = text.match(/-?\d{1,3}\.\d+/g);
+  if(!nums || nums.length < 2) return null;
+
+  nums = nums.map(n=>parseFloat(n));
+
+  let lat=null, lon=null;
+
+  nums.forEach(n=>{
+    if(n>=4 && n<=25 && lat===null) lat=n;
+    else if(n>=115 && n<=130 && lon===null) lon=n;
+  });
+
+  if(lat===null || lon===null){
+    lat=nums[0]; lon=nums[1];
+  }
+
+  if(Math.abs(lat)>90){
+    let t=lat; lat=lon; lon=t;
+  }
+
+  return {lat,lon};
+}
+
+// OCR
+function runOCR(src){
+  Tesseract.recognize(src,'eng').then(({data:{text}})=>{
+    ocrText.value=text;
+
+    let lines=text.split("\n").filter(x=>x.trim());
+    if(lines.length){
+      description.value="DS26_OW-"+lines[lines.length-1];
+    }
+
+    let coords=extractCoordinates(text);
+    if(coords){
+      latitude.value=coords.lat.toFixed(6);
+      longitude.value=coords.lon.toFixed(6);
+      updateMap();
+    }
+
+    let d=text.match(/(\d{4}.\d{2}.\d{2}).*(\d{2}:\d{2}:\d{2})/);
+    if(d) dateTaken.value=d[1]+" "+d[2];
+  });
+}
+
+// LOAD IMAGE
+imageInput.onchange=e=>{
+  let file=e.target.files[0];
+  if(!file) return;
+
+  filename.value="DS26_OW-"+file.name;
+
+  let reader=new FileReader();
+  reader.onload=()=>{
+    originalSrc=reader.result;
+    preview.src=originalSrc;
+    runOCR(originalSrc);
+    compress();
+  };
+  reader.readAsDataURL(file);
+};
+
+// COMPRESS
+quality.oninput=()=>{
+  qv.innerText=quality.value+"%";
+  compress();
+};
+
+function compress(){
+  let img=new Image();
+  img.src=originalSrc;
+  img.onload=()=>{
+    let canvas=document.createElement("canvas");
+    let max=1024;
+    let w=img.width,h=img.height;
+
+    if(w>h && w>max){h*=max/w;w=max;}
+    if(h>w && h>max){w*=max/h;h=max;}
+
+    canvas.width=w; canvas.height=h;
+    canvas.getContext("2d").drawImage(img,0,0,w,h);
+
+    compressedData=canvas.toDataURL("image/jpeg",quality.value/100);
+    preview.src=compressedData;
+  };
+}
+
+// MAP
+let map,marker;
+function updateMap(){
+  let lat=parseFloat(latitude.value);
+  let lon=parseFloat(longitude.value);
+  if(isNaN(lat)||isNaN(lon)) return;
+
+  if(!map){
+    map=L.map('map').setView([lat,lon],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    marker=L.marker([lat,lon]).addTo(map);
+  } else {
+    map.setView([lat,lon],13);
+    marker.setLatLng([lat,lon]);
+  }
+}
+
+// EXIF FIX
+function decimalToDMSRational(dec){
+  let abs=Math.abs(dec);
+  let deg=Math.floor(abs);
+  let minFloat=(abs-deg)*60;
+  let min=Math.floor(minFloat);
+  let sec=(minFloat-min)*60;
+
+  return [[deg,1],[min,1],[Math.round(sec*100),100]];
+}
+
+// DOWNLOAD
+function downloadImage(){
+  let exifObj={"0th":{},"GPS":{}};
+
+  exifObj["0th"][piexif.ImageIFD.Make]=make.value;
+  exifObj["0th"][piexif.ImageIFD.Model]=model.value;
+  exifObj["0th"][piexif.ImageIFD.Software]=software.value;
+  exifObj["0th"][piexif.ImageIFD.ImageDescription]=description.value;
+
+  if(dateTaken.value)
+    exifObj["0th"][piexif.ImageIFD.DateTime]=dateTaken.value;
+
+  let lat=parseFloat(latitude.value);
+  let lon=parseFloat(longitude.value);
+
+  if(!isNaN(lat)&&!isNaN(lon)){
+    exifObj["GPS"][piexif.GPSIFD.GPSLatitude]=decimalToDMSRational(lat);
+    exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef]=lat>=0?"N":"S";
+
+    exifObj["GPS"][piexif.GPSIFD.GPSLongitude]=decimalToDMSRational(lon);
+    exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef]=lon>=0?"E":"W";
+  }
+
+  let exifBytes=piexif.dump(exifObj);
+  let newImg=piexif.insert(exifBytes,compressedData);
+
+  let a=document.createElement("a");
+  let fname=filename.value;
+  if(!fname.endsWith(".jpg")) fname+=".jpg";
+  a.href=newImg;
+  a.download=fname;
+  a.click();
+}
+</script>
+
+</body>
+</html>
