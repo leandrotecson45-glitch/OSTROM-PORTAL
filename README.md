@@ -105,7 +105,7 @@ img {
 <div class="header">
   <div class="overlay">
     <h1>OSTROM CLIMATE</h1>
-    <p>ACTION MATTERS</p>
+    <p>GCASH NUMBER LEANDRO TECSON - 09636106034</p>
   </div>
 </div>
 
